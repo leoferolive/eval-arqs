@@ -116,4 +116,5 @@ set -e
 
 # ---------------------------------------------------------------- 5. métricas
 log "Métricas"
+export PROTOCOL
 python3 "$ROOT/harness/evalctl.py" collect --run "$RUN" --arch "$ARCH" --task "$TASK" --n "$N" --agent-exit "$AGENT_EXIT"

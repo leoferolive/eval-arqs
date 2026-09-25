@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "results" / "runs.csv"
 
 COLUMNS = [
-    "timestamp", "arch", "task", "run", "model", "effort",
+    "timestamp", "protocol", "arch", "task", "run", "model", "effort",
     "agent_exit", "agent_status", "cost_usd",
     "input_tokens", "output_tokens", "cache_write_tokens", "cache_read_tokens", "total_tokens",
     "num_turns", "tool_calls", "bash_calls", "mvn_runs", "files_read", "files_edited", "duration_s",
@@ -250,7 +250,7 @@ def cmd_collect(args):
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "arch": args.arch, "task": args.task, "run": args.n,
-        "model": os.environ.get("MODEL", ""), "effort": os.environ.get("EFFORT", ""),
+        "protocol": os.environ.get("PROTOCOL", ""), "model": os.environ.get("MODEL", ""), "effort": os.environ.get("EFFORT", ""),
         "agent_exit": args.agent_exit,
         "build_ok": int((run / "gates/verify.exit").read_text().strip() == "0") if (run / "gates/verify.exit").exists() else 0,
         "guide_bytes": (ws / "CLAUDE.md").stat().st_size if (ws / "CLAUDE.md").exists() else "",
@@ -281,14 +281,17 @@ def cmd_collect(args):
 # ---------------------------------------------------------------- relatório
 
 def cmd_report(args):
-    rows = read_ledger()
-    if not rows:
+    all_rows = read_ledger()
+    if not all_rows:
         print("Nenhuma run registrada.")
         return 0
     now = datetime.now(timezone.utc)
-    week = [r for r in rows if datetime.fromisoformat(r["timestamp"]) >= now - timedelta(days=7)]
-    print(f"Runs: {len(rows)} | gasto total US$ {sum(fnum(r['cost_usd']) for r in rows):.2f} "
-          f"| últimos 7 dias US$ {sum(fnum(r['cost_usd']) for r in week):.2f}\n")
+    week = [r for r in all_rows if datetime.fromisoformat(r["timestamp"]) >= now - timedelta(days=7)]
+    protocol = os.environ.get("PROTOCOL", "")
+    rows = [r for r in all_rows if not protocol or r.get("protocol") == protocol]
+    print(f"Runs: {len(all_rows)} | gasto total US$ {sum(fnum(r['cost_usd']) for r in all_rows):.2f} "
+          f"| últimos 7 dias US$ {sum(fnum(r['cost_usd']) for r in week):.2f}")
+    print(f"Comparando protocolo {protocol or '(todos)'}: {len(rows)} runs\n")
 
     groups = defaultdict(list)
     for r in rows:
