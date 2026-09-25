@@ -79,7 +79,7 @@ def cmd_budget(args):
         ok = False
         print("  BLOQUEADO: orçamento semanal restante menor que o teto de uma run.")
 
-    if rows:
+    if rows and not os.environ.get("BUDGET_USD_ONLY"):
         last = rows[-1]
         for label, key, limit, reset_key in (("5h", "plan_5h_after", max_5h, "plan_5h_resets_at"),
                                              ("7d", "plan_7d_after", max_7d, "plan_7d_resets_at")):
@@ -278,6 +278,62 @@ def cmd_collect(args):
     return 0
 
 
+
+# ---------------------------------------------------------------- gate preditivo (campanha)
+
+def probe_plan():
+    """Chamada mínima e isolada ao Claude só para ler o uso atual do plano (rate_limit_event)."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        out = subprocess.run(
+            ["claude", "-p", "ok", "--model", os.environ.get("MODEL", "claude-sonnet-5"),
+             "--setting-sources", "project", "--strict-mcp-config", "--disable-slash-commands",
+             "--output-format", "stream-json", "--verbose"],
+            cwd=d, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL).stdout
+    windows = None
+    for line in out.splitlines():
+        try:
+            ev = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if ev.get("type") == "rate_limit_event":
+            windows = ev["rate_limit_info"].get("unifiedWindows") or windows
+    return windows
+
+
+def expected_delta(task, key_before, key_after, default):
+    deltas = defaultdict(list)
+    for r in read_ledger():
+        if r.get(key_before) not in ("", None) and r.get(key_after) not in ("", None):
+            d = fnum(r[key_after]) - fnum(r[key_before])
+            if d >= 0:
+                deltas[r["task"]].append(d)
+    pool = deltas.get(task) or [d for ds in deltas.values() for d in ds]
+    return (max(pool) if pool else default) + 0.01
+
+
+def cmd_gate(args):
+    max_5h = float(os.environ.get("PLAN_5H_MAX", "0.85"))
+    max_7d = float(os.environ.get("PLAN_7D_MAX", "0.92"))
+    w = probe_plan()
+    if not w:
+        print(json.dumps({"ok": False, "erro": "sonda sem rate_limit_event"}))
+        return 4
+    h, s = w["five_hour"]["utilization"], w["seven_day"]["utilization"]
+    eh = expected_delta(args.task, "plan_5h_before", "plan_5h_after", 0.20)
+    es = expected_delta(args.task, "plan_7d_before", "plan_7d_after", 0.03)
+    blocked = []
+    if h + eh > max_5h:
+        blocked.append(("5h", h, w["five_hour"]["resetsAt"]))
+    if s + es > max_7d:
+        blocked.append(("7d", s, w["seven_day"]["resetsAt"]))
+    res = {"ok": not blocked, "5h": h, "7d": s, "esperado_5h": round(eh, 3), "esperado_7d": round(es, 3)}
+    if blocked:
+        res["bloqueio"] = [b[0] for b in blocked]
+        res["retomar_em"] = max(int(b[2]) for b in blocked) + 300
+    print(json.dumps(res))
+    return 0 if not blocked else 3
+
 # ---------------------------------------------------------------- relatório
 
 def cmd_report(args):
@@ -321,8 +377,10 @@ def main():
     c.add_argument("--n", required=True)
     c.add_argument("--agent-exit", default="")
     sub.add_parser("report")
+    g = sub.add_parser("gate")
+    g.add_argument("--task", required=True)
     args = ap.parse_args()
-    return {"budget": cmd_budget, "collect": cmd_collect, "report": cmd_report}[args.cmd](args)
+    return {"budget": cmd_budget, "collect": cmd_collect, "report": cmd_report, "gate": cmd_gate}[args.cmd](args)
 
 
 if __name__ == "__main__":

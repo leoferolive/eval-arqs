@@ -1,0 +1,16 @@
+diff --git a/src/main/java/com/example/loja/service/PedidoService.java b/src/main/java/com/example/loja/service/PedidoService.java
+index bb0ce6e..bbcb065 100644
+--- a/src/main/java/com/example/loja/service/PedidoService.java
++++ b/src/main/java/com/example/loja/service/PedidoService.java
+@@ -96,11 +96,6 @@ public class PedidoService {
+         if (pedido.getStatus() == StatusPedido.CANCELADO) {
+             throw new PedidoJaCanceladoException(id);
+         }
+-        for (ItemPedido item : pedido.getItens()) {
+-            Produto produto = produtoRepository.findById(item.getProdutoId())
+-                    .orElseThrow(() -> new ProdutoInexistenteException(item.getProdutoId()));
+-            produto.incrementarEstoque(item.getQuantidade());
+-        }
+         pedido.cancelar();
+         return toResponse(pedido);
+     }

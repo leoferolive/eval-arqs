@@ -1,0 +1,19 @@
+# Fila da campanha: <arch> <task>. Linhas concluídas ficam registradas em runs/campaign.done.
+hexagonal T0
+clean T0
+layered T1
+layered-bc T1
+hexagonal T1
+clean T1
+layered T2
+layered-bc T2
+hexagonal T2
+clean T2
+layered T3
+layered-bc T3
+hexagonal T3
+clean T3
+layered T4
+layered-bc T4
+hexagonal T4
+clean T4

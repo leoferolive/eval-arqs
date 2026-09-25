@@ -1,0 +1,12 @@
+diff --git a/src/main/java/com/example/loja/pedidos/service/PedidoService.java b/src/main/java/com/example/loja/pedidos/service/PedidoService.java
+index 00f8d12..31e71f8 100644
+--- a/src/main/java/com/example/loja/pedidos/service/PedidoService.java
++++ b/src/main/java/com/example/loja/pedidos/service/PedidoService.java
+@@ -81,7 +81,6 @@ public class PedidoService {
+             throw new PedidoJaCanceladoException(id);
+         }
+         pedido.cancelar();
+-        pedido.getItens().forEach(item -> produtoService.creditarEstoque(item.getProdutoId(), item.getQuantidade()));
+         return PedidoResponse.de(pedido);
+     }
+ 
