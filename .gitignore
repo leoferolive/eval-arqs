@@ -1,0 +1,4 @@
+runs/
+**/target/
+*.log
+.idea/
