@@ -1,0 +1,18 @@
+diff --git a/src/main/java/com/example/loja/usecase/pedido/CancelarPedidoInteractor.java b/src/main/java/com/example/loja/usecase/pedido/CancelarPedidoInteractor.java
+index 531368c..7826006 100644
+--- a/src/main/java/com/example/loja/usecase/pedido/CancelarPedidoInteractor.java
++++ b/src/main/java/com/example/loja/usecase/pedido/CancelarPedidoInteractor.java
+@@ -22,13 +22,6 @@ public class CancelarPedidoInteractor {
+         Pedido pedido = pedidoGateway.buscarPorId(id).orElseThrow(() -> new PedidoNaoEncontradoException(id));
+         pedido.cancelar();
+ 
+-        for (ItemPedido item : pedido.getItens()) {
+-            Produto produto = produtoGateway.buscarPorId(item.getProdutoId())
+-                    .orElseThrow(() -> new ProdutoNaoEncontradoException(item.getProdutoId()));
+-            produto.incrementarEstoque(item.getQuantidade());
+-            produtoGateway.salvar(produto);
+-        }
+-
+         Pedido salvo = pedidoGateway.salvar(pedido);
+         return PedidoOutput.de(salvo);
+     }
