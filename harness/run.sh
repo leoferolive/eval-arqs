@@ -4,6 +4,7 @@
 #   harness/run.sh <arch> <task> <n>            ex.: harness/run.sh layered T0 1
 #   harness/run.sh <arch> <task> <n> --no-agent pula o agente (valida gates com o conteúdo do workspace/baseline)
 #   FORCE=1 harness/run.sh ...                  ignora o gate de orçamento
+#   GATES_ONLY=1 harness/run.sh <arch> <task> <n>  refaz só os gates/métricas de uma run existente
 #   IMPL_DIR=dir harness/run.sh <arch> <task> <n> --no-agent
 #                                               copia uma implementação pronta no lugar do agente (validação do harness)
 set -euo pipefail
@@ -22,10 +23,15 @@ case "$ARCH" in layered|layered-bc|hexagonal|clean) ;; *) echo "arch inválida: 
 
 RUN="$ROOT/runs/$ARCH/$TASK/run-$N"
 WS="$RUN/workspace"
-[[ -e "$RUN" ]] && { echo "run já existe: $RUN"; exit 2; }
+if [[ -n "${GATES_ONLY:-}" ]]; then
+  [[ -f "$RUN/agent.jsonl" ]] || { echo "GATES_ONLY: run sem agent.jsonl: $RUN"; exit 2; }
+else
+  [[ -e "$RUN" ]] && { echo "run já existe: $RUN"; exit 2; }
+fi
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
+if [[ -z "${GATES_ONLY:-}" ]]; then
 # ---------------------------------------------------------------- 1. orçamento
 if [[ -z "${FORCE:-}" && "$NO_AGENT" != "--no-agent" ]]; then
   python3 "$ROOT/harness/evalctl.py" budget || { log "Sem orçamento para rodar agora."; exit 3; }
@@ -74,9 +80,11 @@ Trabalhe diretamente neste diretório, na branch atual. Não crie branches nem g
 elif [[ -n "${IMPL_DIR:-}" ]]; then
   cp -r "$IMPL_DIR"/. "$WS"/
 fi
+fi
+AGENT_EXIT="${AGENT_EXIT:-}"
 # o agente deve trabalhar no próprio workspace: worktrees ou branches extras invalidam a run
-EXTRA_WT=$(git -C "$WS" worktree list | tail -n +2 | wc -l)
-EXTRA_BR=$(git -C "$WS" branch --format='%(refname:short)' | grep -vx main | wc -l)
+EXTRA_WT=$(git -C "$WS" worktree list | tail -n +2 | wc -l || true)
+EXTRA_BR=$( (git -C "$WS" branch --format='%(refname:short)' | grep -vx main || true) | wc -l)
 echo $(( EXTRA_WT + EXTRA_BR )) > "$RUN/gates/off_workspace"
 git -C "$WS" add -A
 git -C "$WS" -c user.name=eval -c user.email=eval@local commit -qm agent --allow-empty
