@@ -59,10 +59,13 @@ AGENT_EXIT=""
 if [[ "$NO_AGENT" != "--no-agent" ]]; then
   log "Agente: $ARCH $TASK run-$N ($MODEL, effort $EFFORT, teto US\$ $RUN_MAX_USD)"
   set +e
-  (cd "$WS" && timeout "$AGENT_TIMEOUT" claude -p "$(cat "$ROOT/tasks/$TASK.md")" \
+  PROMPT="$(cat "$ROOT/tasks/$TASK.md")
+
+Trabalhe diretamente neste diretório, na branch atual. Não crie branches nem git worktrees."
+  (cd "$WS" && timeout "$AGENT_TIMEOUT" claude -p "$PROMPT" \
       --model "$MODEL" --effort "$EFFORT" \
       --setting-sources project --strict-mcp-config --disable-slash-commands \
-      --permission-mode bypassPermissions \
+      --permission-mode bypassPermissions --disallowedTools EnterWorktree ExitWorktree \
       --max-budget-usd "$RUN_MAX_USD" \
       --output-format stream-json --verbose) > "$RUN/agent.jsonl" 2> "$RUN/agent.stderr"
   AGENT_EXIT=$?
@@ -71,6 +74,10 @@ if [[ "$NO_AGENT" != "--no-agent" ]]; then
 elif [[ -n "${IMPL_DIR:-}" ]]; then
   cp -r "$IMPL_DIR"/. "$WS"/
 fi
+# o agente deve trabalhar no próprio workspace: worktrees ou branches extras invalidam a run
+EXTRA_WT=$(git -C "$WS" worktree list | tail -n +2 | wc -l)
+EXTRA_BR=$(git -C "$WS" branch --format='%(refname:short)' | grep -vx main | wc -l)
+echo $(( EXTRA_WT + EXTRA_BR )) > "$RUN/gates/off_workspace"
 git -C "$WS" add -A
 git -C "$WS" -c user.name=eval -c user.email=eval@local commit -qm agent --allow-empty
 

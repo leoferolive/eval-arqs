@@ -70,7 +70,11 @@ while read -r ARCH TASK <&3; do
     if (( rc != 0 )) || [[ ! -f "$RUN/metrics.json" ]]; then
       ev "ERRO run.sh falhou ($ARCH $TASK run-$N, exit $rc) — ver runs/campaign-$ARCH-$TASK-$N.out"; exit 1
     fi
-    read -r status cost ok h s <<<"$(python3 -c "import json;d=json.load(open('$RUN/metrics.json'));print(d.get('agent_status'),d.get('cost_usd'),d.get('success'),d.get('plan_5h_after'),d.get('plan_7d_after'))")"
+    read -r status cost ok h s off <<<"$(python3 -c "import json;d=json.load(open('$RUN/metrics.json'));print(d.get('agent_status'),d.get('cost_usd'),d.get('success'),d.get('plan_5h_after'),d.get('plan_7d_after'),d.get('off_workspace',0))")"
+    if [[ "$off" != "0" ]]; then
+      commit "$ARCH $TASK run-$N (agente saiu do workspace)"
+      ev "ERRO agente criou worktree/branch fora do workspace ($ARCH $TASK run-$N, US\$ $cost) — run inválida"; exit 1
+    fi
     if [[ "$status" != "success" ]]; then
       commit "$ARCH $TASK run-$N (agente: $status)"
       ev "ERRO agente terminou com status '$status' ($ARCH $TASK run-$N, US\$ $cost)"; exit 1

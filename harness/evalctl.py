@@ -30,7 +30,7 @@ COLUMNS = [
     "plan_5h_before", "plan_5h_after", "plan_7d_before", "plan_7d_after", "plan_5h_resets_at", "plan_7d_resets_at",
     "build_ok", "line_coverage", "accept_passed", "accept_total", "arch_violations", "mutation_score",
     "main_files", "main_loc", "test_files", "test_loc", "interfaces", "packages",
-    "diff_files", "diff_added", "diff_removed", "gates_tampered", "guide_bytes", "success",
+    "diff_files", "diff_added", "diff_removed", "gates_tampered", "off_workspace", "guide_bytes", "success",
 ]
 
 
@@ -267,9 +267,12 @@ def cmd_collect(args):
     row.update(code_metrics(ws))
     row.update(diff_metrics(ws))
     row["gates_tampered"] = int(tampered(ws))
+    off = run / "gates/off_workspace"
+    row["off_workspace"] = int(off.read_text().strip() or 0) if off.exists() else 0
     row["success"] = int(row["build_ok"] == 1 and row["accept_total"] > 0
                          and row["accept_passed"] == row["accept_total"]
-                         and row["arch_violations"] == 0 and row["gates_tampered"] == 0)
+                         and row["arch_violations"] == 0 and row["gates_tampered"] == 0
+                         and row["off_workspace"] == 0)
     (run / "metrics.json").write_text(json.dumps(row, indent=2, ensure_ascii=False))
     append_ledger(row)
     for k in ("agent_status", "cost_usd", "total_tokens", "num_turns", "build_ok", "line_coverage",
