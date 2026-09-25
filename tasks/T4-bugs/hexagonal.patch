@@ -1,0 +1,17 @@
+diff --git a/src/main/java/com/example/loja/application/service/PedidoService.java b/src/main/java/com/example/loja/application/service/PedidoService.java
+index 230f3bf..0d17525 100644
+--- a/src/main/java/com/example/loja/application/service/PedidoService.java
++++ b/src/main/java/com/example/loja/application/service/PedidoService.java
+@@ -78,12 +78,6 @@ public class PedidoService implements CriarPedidoUseCase, BuscarPedidoUseCase,
+     public Pedido cancelar(long id) {
+         Pedido pedido = buscarPorId(id);
+         pedido.cancelar();
+-        for (ItemPedido item : pedido.getItens()) {
+-            Produto produto = produtoRepositoryPort.buscarPorId(item.getProdutoId())
+-                    .orElseThrow(() -> new ProdutoInexistenteException(item.getProdutoId()));
+-            produto.incrementarEstoque(item.getQuantidade());
+-            produtoRepositoryPort.salvar(produto);
+-        }
+         return pedidoRepositoryPort.salvar(pedido);
+     }
+ }
