@@ -5,7 +5,9 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 set -a; source "$ROOT/harness/config.env"; set +a
-LOG="$ROOT/runs/campaign.log"; DONE="$ROOT/runs/campaign.done"
+# CAMPAIGN=<nome> usa harness/campaign-<nome>.txt e runs/campaign-<nome>.done (ex.: fase C de repetições)
+QUEUE="$ROOT/harness/campaign${CAMPAIGN:+-$CAMPAIGN}.txt"
+LOG="$ROOT/runs/campaign.log"; DONE="$ROOT/runs/campaign${CAMPAIGN:+-$CAMPAIGN}.done"
 mkdir -p "$ROOT/runs"; touch "$DONE"
 ev() { echo "$(date '+%d/%m %H:%M') $*" >> "$LOG"; }
 commit() { git -C "$ROOT" add results baselines >/dev/null 2>&1
@@ -44,9 +46,10 @@ PY
   done
 }
 
-ev "INÍCIO campanha (limites 5h=${PLAN_5H_MAX} 7d=${PLAN_7D_MAX}, US\$ ${BUDGET_WEEKLY_USD}/semana)"
-while read -r ARCH TASK <&3; do
-  grep -qx "$ARCH $TASK" "$DONE" && continue
+ev "INÍCIO campanha ${CAMPAIGN:-principal} (limites 5h=${PLAN_5H_MAX} 7d=${PLAN_7D_MAX}, US\$ ${BUDGET_WEEKLY_USD}/semana)"
+while read -r ARCH TASK REP <&3; do
+  KEY="$ARCH $TASK${REP:+ $REP}"
+  grep -qx "$KEY" "$DONE" && continue
 
   if [[ "$TASK" == "T4" && ! -f "$ROOT/tasks/T4-bugs/$ARCH.patch" ]]; then
     ev "PRECISA_PATCH tasks/T4-bugs/$ARCH.patch (aguardando o arquivo)"
@@ -81,7 +84,7 @@ while read -r ARCH TASK <&3; do
     fi
     ev "OK $ARCH $TASK run-$N — US\$ $cost, success=$ok, plano 5h=$h 7d=$s"
 
-    if [[ "$TASK" == "T0" ]]; then
+    if [[ "$TASK" == "T0" && -z "${NO_PROMOTE:-}" ]]; then
       if [[ "$ok" == "1" ]]; then
         "$ROOT/harness/promote.sh" "$ARCH" "$N" > /dev/null && ev "BASELINE $ARCH ← T0 run-$N"
       elif (( attempts < 2 )); then
@@ -91,8 +94,8 @@ while read -r ARCH TASK <&3; do
       fi
     fi
     commit "$ARCH $TASK run-$N"
-    echo "$ARCH $TASK" >> "$DONE"
+    echo "$KEY" >> "$DONE"
     break
   done
-done 3< <(grep -vE '^\s*(#|$)' "$ROOT/harness/campaign.txt")
+done 3< <(grep -vE '^\s*(#|$)' "$QUEUE")
 ev "FIM fila concluída — $(python3 "$ROOT/harness/evalctl.py" report | head -1)"

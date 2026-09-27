@@ -1,0 +1,12 @@
+# Fase C — repetições (terceira coluna = identificador da repetição).
+# Rodar com: CAMPAIGN=c NO_PROMOTE=1 harness/campaign.sh
+layered T1 rep2
+layered-bc T1 rep2
+hexagonal T1 rep2
+clean T1 rep2
+layered T2 rep2
+hexagonal T2 rep2
+layered T0 rep2
+layered-bc T0 rep2
+hexagonal T0 rep2
+clean T0 rep2
